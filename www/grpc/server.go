@@ -14,6 +14,8 @@ import (
 	aerium "github.com/aerium-network/aerium/www/grpc/gen/go"
 	"github.com/aerium-network/aerium/www/zmq"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type Server struct {
@@ -68,14 +70,14 @@ func (s *Server) StartServer() error {
 
 func (s *Server) startListening(listener net.Listener) error {
 	opts := make([]grpc.UnaryServerInterceptor, 0)
-
 	if s.config.BasicAuth != "" {
 		opts = append(opts, BasicAuth(s.config.BasicAuth))
 	}
-
 	opts = append(opts, s.Recovery())
 
 	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(opts...))
+
+	grpc_health_v1.RegisterHealthServer(grpcServer, health.NewServer())
 
 	blockchainServer := newBlockchainServer(s)
 	transactionServer := newTransactionServer(s)
@@ -89,7 +91,6 @@ func (s *Server) startListening(listener net.Listener) error {
 
 	if s.config.EnableWallet {
 		walletServer := newWalletServer(s, s.walletMgr)
-
 		aerium.RegisterWalletServer(grpcServer, walletServer)
 	}
 
